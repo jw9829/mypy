@@ -14,7 +14,7 @@ from collections.abc import Iterator
 
 from librt.internal import ReadBuffer
 
-from mypy import defaults, nodes
+from mypy import build, defaults, nodes
 from mypy.cache import (
     END_TAG,
     LIST_GEN,
@@ -27,6 +27,7 @@ from mypy.cache import (
 )
 from mypy.config_parser import parse_mypy_comments
 from mypy.errors import CompileError
+from mypy.modulefinder import BuildSource
 from mypy.nodes import MypyFile, ParseError
 from mypy.options import Options
 from mypy.test.data import DataDrivenTestCase, DataSuite
@@ -298,6 +299,20 @@ class TestNativeParserBinaryFormat(unittest.TestCase):
     def test_invalid_bytes_raises(self) -> None:
         with self.assertRaises(UnicodeDecodeError):
             parse_to_binary_ast("", Options(), b"\xff")
+
+    def test_latin1_source_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            filename = os.path.join(temp_dir, "latin1.py")
+            with open(filename, "wb") as source_file:
+                source_file.write(b"# coding: latin_1\nname = 'caf\xe9'\n")
+
+            result = build.build(
+                sources=[BuildSource(filename, "__main__", None)],
+                options=Options(),
+                alt_lib_path=temp_dir,
+            )
+
+        self.assertEqual(result.errors, [])
 
 
 @contextlib.contextmanager

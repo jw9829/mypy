@@ -3267,7 +3267,14 @@ class State:
                     # AST is built during deserialization.
                     self.source_hash = raw_data.source_hash
                     self.apply_inline_configuration(raw_data.mypy_comments)
-                self.parse_file_inner(source, raw_data)
+                try:
+                    self.parse_file_inner(source, raw_data)
+                except ValueError as e:
+                    if source is not None or e.args != ("stream did not contain valid UTF-8",):
+                        raise
+                    # Let Python decode files with a PEP 263 encoding cookie.
+                    source = self.get_source()
+                    self.parse_file_inner(source, raw_data)
                 assert self.tree is not None
                 # New parser returns serialized trees that need to be de-serialized.
                 if self.tree.raw_data is not None:
